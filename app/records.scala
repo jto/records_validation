@@ -1,47 +1,45 @@
 package records
 
-  import scala.language.postfixOps
+import scala.language.postfixOps
 import shapeless._, syntax.singleton._, record._
 import shapeless.ops.record._
 import play.api.data.mapping._
+
+@annotation.implicitNotFound(msg = "No field ${K} in record ${L}")
+trait Select[L, K] {
+  outer =>
+  type Out
+  def apply(l: L): Out
+  def >>(k: Witness)(implicit select: Select[outer.Out, k.T]) = new Select[L, k.T] {
+    type Out = select.Out
+    def apply(l: L): Out = select(outer(l))
+  }
+}
+
+object Select {
+  def apply[T](implicit gen: LabelledGeneric[T]) = new Select[T, Nothing] {
+    type Out = gen.Repr
+    def apply(t: T): Out = gen.to(t)
+  }
+
+  implicit def fromS[L <: HList, K](implicit s: Selector[L, K]) = new Select[L, K] {
+    type Out = s.Out
+    def apply(l: L): Out = s(l)
+  }
+
+  implicit def fromGen[T, K](implicit gen: LabelledGeneric[T], s: Select[gen.Repr, K]) = new Select[T, K] {
+    type Out = s.Out
+    def apply(t: T): Out = s(gen.to(t))
+  }
+}
 
 object Rules {
 
   case class Book(author: String, title: String, id: Int, price: Double)
   case class User(name: String, book: Book)
 
-  val bookGen = LabelledGeneric[Book]
-  val userGen = LabelledGeneric[User]
+  val bo = Book("Benjamin Pierce", "Types and Programming Languages", 262162091, 44.11)
+  val us = User("jto", bo)
 
-  val tapl = Book("Benjamin Pierce", "Types and Programming Languages", 262162091, 44.11)
-  val us = User("jto", tapl)
-
-  val uRec = userGen.to(us)
-  // Read price field
-  val b = uRec('book)
-  val bRec = bookGen.to(b)
-
-  trait Select[L <: HList, K] extends Selector[L, K] {
-    outer =>
-    type Out <: HList
-    def >>(k: Witness)(implicit selector: Selector[outer.Out, k.T]) = new Selector[L, k.T] {
-      type Out = selector.Out
-      def apply(l: L): Out = selector(outer(l))
-    }
-  }
-
-  object Select {
-    // def toN[L <: HList, K, Out <: HList](aux: Selector.Aux[L, K, Out]) = new Select[L, K] {
-    //   type Out = aux.Out
-    //   def apply(l: L) = aux.apply(l)
-    // }
-  }
-
-  val k = Witness('book)
-  val s = implicitly[Selector.Aux[userGen.Repr, k.T, Book]]
-  val book = s(uRec)
-  // implicitly[LabelledGeneric[s.Out =:= Book]]
-  implicitly[LabelledGeneric[s.Out]]
-  // val s2 = SelectorN.toN(s) >> 'price
-  // s2(uRec)
+  val s0 = Select[User] >> 'book >> 'price
 }
