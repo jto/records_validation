@@ -3,13 +3,14 @@ package records
 import scala.language.postfixOps
 import shapeless._, syntax.singleton._, record._
 import shapeless.ops.record._
-import play.api.data.mapping._
+// import play.api.data.mapping._
 
-@annotation.implicitNotFound(msg = "No field ${K} in record ${L}")
+// @annotation.implicitNotFound(msg = "No field ${K} in record ${L}")
 trait Select[L, K] {
   outer =>
   type Out
   def apply(l: L): Out
+
   def >>(k: Witness)(implicit select: Select[outer.Out, k.T]) = new Select[L, k.T] {
     type Out = select.Out
     def apply(l: L): Out = select(outer(l))
@@ -17,20 +18,20 @@ trait Select[L, K] {
 }
 
 object Select {
+
+  type Aux[T, Out0] = LabelledGeneric[T]{ type Repr = Out0 }
+
   def apply[T](implicit gen: LabelledGeneric[T]) = new Select[T, Nothing] {
     type Out = gen.Repr
     def apply(t: T): Out = gen.to(t)
   }
 
-  implicit def fromS[L <: HList, K](implicit s: Selector[L, K]) = new Select[L, K] {
-    type Out = s.Out
-    def apply(l: L): Out = s(l)
-  }
-
-  implicit def fromGen[T, K](implicit gen: LabelledGeneric[T], s: Select[gen.Repr, K]) = new Select[T, K] {
-    type Out = s.Out
-    def apply(t: T): Out = s(gen.to(t))
-  }
+  implicit def fromGen[T, K, Out0 <: HList : ({type L[O] = Aux[T, O]})#L](implicit s: Selector[Out0, K]) =
+    new Select[T, K] {
+      type Out = s.Out
+      val gen = implicitly[Aux[T, Out0]]
+      def apply(t: T): Out = s(gen.to(t))
+    }
 }
 
 object Rules {
@@ -42,4 +43,5 @@ object Rules {
   val us = User("jto", bo)
 
   val s0 = Select[User] >> 'book >> 'price
+  so(us) // 44.11
 }
