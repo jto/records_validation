@@ -5,7 +5,7 @@ import shapeless._, syntax.singleton._, record._
 import shapeless.ops.record._
 // import play.api.data.mapping._
 
-// @annotation.implicitNotFound(msg = "No field ${K} in record ${L}")
+@annotation.implicitNotFound(msg = "No field ${K} in record ${L}")
 trait Select[L, K] {
   outer =>
   type Out
@@ -18,7 +18,6 @@ trait Select[L, K] {
 }
 
 object Select {
-
   type Aux[T, Out0] = LabelledGeneric[T]{ type Repr = Out0 }
 
   def apply[T](implicit gen: LabelledGeneric[T]) = new Select[T, Nothing] {
@@ -43,5 +42,5 @@ object Rules {
   val us = User("jto", bo)
 
   val s0 = Select[User] >> 'book >> 'price
-  so(us) // 44.11
+  s0(us) // 44.11
 }
